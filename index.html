@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Escucha y anota</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f2;
+      --ink: #202420;
+      --muted: #687067;
+      --line: #d9dfd4;
+      --panel: #ffffff;
+      --accent: #0d7f68;
+      --accent-strong: #075f50;
+      --warn: #b74835;
+      --soft: #e6f3ee;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+      width: min(980px, calc(100vw - 28px));
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 18px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      min-height: 52px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.45rem, 2.5vw, 2rem);
+      line-height: 1.05;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: max-content;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #8c958a;
+    }
+
+    body.listening .dot {
+      background: var(--warn);
+      box-shadow: 0 0 0 7px rgba(183, 72, 53, 0.14);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    button, select {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 680;
+    }
+
+    button:hover {
+      border-color: #b7c1b2;
+      background: #fbfcfa;
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+    }
+
+    button.danger {
+      color: var(--warn);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    select {
+      padding: 0 36px 0 12px;
+      min-width: 170px;
+    }
+
+    .source-toggle {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .source-toggle label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 122px;
+      padding: 0 12px;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 680;
+      border-right: 1px solid var(--line);
+    }
+
+    .source-toggle label:last-child {
+      border-right: 0;
+    }
+
+    .source-toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .source-toggle label:has(input:checked) {
+      color: var(--accent-strong);
+      background: var(--soft);
+    }
+
+    .hint {
+      display: none;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e3d0c8;
+      border-radius: 8px;
+      color: #794132;
+      background: #fff6f2;
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    body.app-source .hint {
+      display: block;
+    }
+
+    .level {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      min-width: 170px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    body.app-source .level {
+      display: inline-flex;
+    }
+
+    body.compact main {
+      width: min(620px, calc(100vw - 18px));
+      grid-template-rows: auto auto 1fr;
+    }
+
+    body.compact h1 {
+      font-size: 1.25rem;
+    }
+
+    body.compact textarea {
+      min-height: 46vh;
+      font-size: 1rem;
+    }
+
+    .meter {
+      width: 86px;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #dfe5da;
+    }
+
+    .meter span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: var(--accent);
+      transition: width 120ms linear;
+    }
+
+    .spacer {
+      flex: 1 1 auto;
+    }
+
+    .editor-wrap {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 58vh;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: clamp(18px, 3vw, 32px);
+      color: var(--ink);
+      background: #fff;
+      font: 1.08rem/1.65 ui-serif, Georgia, "Times New Roman", serif;
+    }
+
+    textarea::placeholder {
+      color: #90988d;
+    }
+
+    .live {
+      min-height: 48px;
+      padding: 12px clamp(18px, 3vw, 32px);
+      border-top: 1px solid var(--line);
+      background: var(--soft);
+      color: var(--accent-strong);
+      font-size: 0.98rem;
+      line-height: 1.4;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        width: min(100vw - 18px, 980px);
+        padding: 10px 0;
+        gap: 10px;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .toolbar .primary,
+      .toolbar .source-toggle,
+      .toolbar select,
+      .toolbar .level,
+      .spacer {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .source-toggle label {
+        min-width: 0;
+      }
+
+      button {
+        padding: 0 10px;
+      }
+
+      textarea {
+        min-height: 62vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Escucha y anota</h1>
+      <div class="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="state">Listo</span>
+      </div>
+    </header>
+
+    <section class="toolbar" aria-label="Controles">
+      <button id="toggle" class="primary" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <path d="M12 19v3"></path>
+        </svg>
+        <span>Escuchar</span>
+      </button>
+      <div class="source-toggle" aria-label="Fuente">
+        <label>
+          <input type="radio" name="source" value="mic" checked>
+          Micrófono
+        </label>
+        <label>
+          <input type="radio" name="source" value="app">
+          App/ventana
+        </label>
+      </div>
+      <select id="language" aria-label="Idioma">
+        <option value="es-EC">Español Ecuador</option>
+        <option value="es-US">Español Estados Unidos</option>
+        <option value="es-MX">Español México</option>
+        <option value="es-ES">Español España</option>
+        <option value="en-US">English US</option>
+      </select>
+      <div class="level" aria-label="Nivel de audio capturado">
+        <span>Audio</span>
+        <span class="meter"><span id="meter"></span></span>
+      </div>
+      <button id="pin" type="button" title="Anclar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 17v5"></path>
+          <path d="M5 17h14"></path>
+          <path d="M7 3h10l-1 8 3 3v3H5v-3l3-3Z"></path>
+        </svg>
+        <span>Anclar</span>
+      </button>
+      <button id="copy" type="button" title="Copiar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="14" height="14" x="8" y="8" rx="2"></rect>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+        </svg>
+        <span>Copiar</span>
+      </button>
+      <button id="download" type="button" title="Descargar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <path d="M7 10l5 5 5-5"></path>
+          <path d="M12 15V3"></path>
+        </svg>
+        <span>Guardar</span>
+      </button>
+      <div class="spacer"></div>
+      <button id="clear" class="danger" type="button" title="Borrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18"></path>
+          <path d="M8 6V4c0-1 .7-2 2-2h4c1.3 0 2 1 2 2v2"></path>
+          <path d="M19 6l-1 14c-.1 1-1 2-2 2H8c-1 0-1.9-1-2-2L5 6"></path>
+        </svg>
+        <span>Borrar</span>
+      </button>
+      <div id="hint" class="hint">
+        Al elegir App/ventana, el navegador abrirá un selector para que escojas Zoom, Teams, una pestaña o una pantalla. En Chrome/Edge, marca “compartir audio” si aparece. Por seguridad, el navegador puede capturar ese audio, pero no siempre permite usarlo como fuente directa para la transcripción automática.
+      </div>
+    </section>
+
+    <section class="editor-wrap">
+      <textarea id="notes" spellcheck="true" placeholder="Presiona Escuchar y empieza a hablar..."></textarea>
+      <div id="live" class="live" aria-live="polite">La transcripción aparecerá aquí mientras hablas.</div>
+    </section>
+
+    <div class="meta">
+      <span id="saved">Guardado local automático</span>
+      <span id="count">0 palabras</span>
+    </div>
+  </main>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const notes = document.querySelector("#notes");
+    const live = document.querySelector("#live");
+    const state = document.querySelector("#state");
+    const toggle = document.querySelector("#toggle");
+    const toggleText = toggle.querySelector("span");
+    const sourceInputs = [...document.querySelectorAll("input[name='source']")];
+    const language = document.querySelector("#language");
+    const saved = document.querySelector("#saved");
+    const count = document.querySelector("#count");
+    const copy = document.querySelector("#copy");
+    const download = document.querySelector("#download");
+    const clear = document.querySelector("#clear");
+    const pin = document.querySelector("#pin");
+    const meter = document.querySelector("#meter");
+    const storageKey = "escucha-y-anota:text";
+    const langKey = "escucha-y-anota:language";
+    const sourceKey = "escucha-y-anota:source";
+    let recognition = null;
+    let appStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let levelFrame = null;
+    let pipWindow = null;
+    let listening = false;
+    let restartTimer = null;
+
+    notes.value = localStorage.getItem(storageKey) || "";
+    language.value = localStorage.getItem(langKey) || "es-EC";
+    setSource(localStorage.getItem(sourceKey) || "mic", false);
+    updateCount();
+
+    function currentSource() {
+      return sourceInputs.find((input) => input.checked)?.value || "mic";
+    }
+
+    function setSource(value, saveChoice = true) {
+      sourceInputs.forEach((input) => {
+        input.checked = input.value === value;
+      });
+      document.body.classList.toggle("app-source", value === "app");
+      if (saveChoice) localStorage.setItem(sourceKey, value);
+    }
+
+    function setStatus(text, isListening) {
+      state.textContent = text;
+      document.body.classList.toggle("listening", isListening);
+      toggleText.textContent = isListening ? "Pausar" : "Escuchar";
+    }
+
+    function normalize(text) {
+      const clean = text.trim();
+      if (!clean) return "";
+      return clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
+
+    function appendText(text) {
+      const sentence = normalize(text);
+      if (!sentence) return;
+      const needsSpace = notes.value && !notes.value.endsWith("\n") && !notes.value.endsWith(" ");
+      notes.value += `${needsSpace ? " " : ""}${sentence}`;
+      notes.dispatchEvent(new Event("input"));
+      notes.scrollTop = notes.scrollHeight;
+    }
+
+    function updateCount() {
+      const words = notes.value.trim().split(/\s+/).filter(Boolean).length;
+      count.textContent = `${words} ${words === 1 ? "palabra" : "palabras"}`;
+    }
+
+    function save() {
+      localStorage.setItem(storageKey, notes.value);
+      saved.textContent = `Guardado ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      updateCount();
+      syncPinnedWindow();
+    }
+
+    function syncPinnedWindow() {
+      if (!pipWindow || pipWindow.closed) return;
+      const pinnedNotes = pipWindow.document.querySelector("#pinned-notes");
+      const pinnedLive = pipWindow.document.querySelector("#pinned-live");
+      if (pinnedNotes && pinnedNotes.value !== notes.value) pinnedNotes.value = notes.value;
+      if (pinnedLive) pinnedLive.textContent = live.textContent;
+    }
+
+    function stopAppCapture() {
+      cancelAnimationFrame(levelFrame);
+      levelFrame = null;
+      meter.style.width = "0%";
+      if (appStream) {
+        appStream.getTracks().forEach((track) => track.stop());
+        appStream = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      analyser = null;
+    }
+
+    function watchAppLevel(stream) {
+      audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      function tick() {
+        analyser.getByteFrequencyData(data);
+        const total = data.reduce((sum, value) => sum + value, 0);
+        const average = total / data.length;
+        meter.style.width = `${Math.min(100, Math.round(average * 1.4))}%`;
+        levelFrame = requestAnimationFrame(tick);
+      }
+
+      tick();
+    }
+
+    async function startAppCapture() {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        setStatus("Captura no disponible", false);
+        live.textContent = "Este navegador no permite escoger una app o ventana para capturar audio.";
+        syncPinnedWindow();
+        return false;
+      }
+
+      try {
+        appStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+      } catch (error) {
+        setStatus("Selección cancelada", false);
+        live.textContent = "No se eligió ninguna app o ventana.";
+        syncPinnedWindow();
+        return false;
+      }
+
+      const audioTracks = appStream.getAudioTracks();
+      appStream.getVideoTracks().forEach((track) => track.stop());
+
+      if (!audioTracks.length) {
+        stopAppCapture();
+        setStatus("Sin audio de app", false);
+        live.textContent = "La fuente elegida no compartió audio. Vuelve a intentar y marca “compartir audio” si el navegador lo muestra.";
+        syncPinnedWindow();
+        return false;
+      }
+
+      appStream.getTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          if (listening) stop();
+        });
+      });
+      watchAppLevel(appStream);
+      live.textContent = "Audio de la app capturado. Si tu navegador no lo transcribe, cambia a micrófono o usa mezcla estéreo/salida del sistema como entrada.";
+      syncPinnedWindow();
+      return true;
+    }
+
+    function buildRecognition() {
+      if (!SpeechRecognition) return null;
+      const instance = new SpeechRecognition();
+      instance.lang = language.value;
+      instance.continuous = true;
+      instance.interimResults = true;
+
+      instance.onstart = () => {
+        listening = true;
+        setStatus("Escuchando", true);
+      };
+
+      instance.onresult = (event) => {
+        let interim = "";
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const transcript = event.results[index][0].transcript;
+          if (event.results[index].isFinal) {
+            appendText(transcript);
+          } else {
+            interim += transcript;
+          }
+        }
+        live.textContent = interim.trim() || "Escuchando...";
+        syncPinnedWindow();
+      };
+
+      instance.onerror = (event) => {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          listening = false;
+          setStatus("Permiso de micrófono bloqueado", false);
+          live.textContent = "Activa el permiso del micrófono en el navegador.";
+          syncPinnedWindow();
+          return;
+        }
+        live.textContent = "Hubo una pausa en la escucha. Puedes continuar.";
+        syncPinnedWindow();
+      };
+
+      instance.onend = () => {
+        if (listening) {
+          clearTimeout(restartTimer);
+          restartTimer = setTimeout(() => recognition.start(), 350);
+        } else {
+          setStatus("Listo", false);
+          live.textContent = "La transcripción aparecerá aquí mientras hablas.";
+          syncPinnedWindow();
+        }
+      };
+
+      return instance;
+    }
+
+    async function start() {
+      if (!SpeechRecognition) {
+        setStatus("No disponible", false);
+        live.textContent = "Este navegador no tiene reconocimiento de voz. Prueba con Chrome o Edge.";
+        syncPinnedWindow();
+        toggle.disabled = true;
+        return;
+      }
+      if (currentSource() === "app") {
+        const captured = await startAppCapture();
+        if (!captured) return;
+      }
+      recognition = buildRecognition();
+      recognition.start();
+    }
+
+    function stop() {
+      listening = false;
+      clearTimeout(restartTimer);
+      if (recognition) recognition.stop();
+      stopAppCapture();
+      setStatus("Listo", false);
+    }
+
+    toggle.addEventListener("click", () => {
+      if (listening) {
+        stop();
+      } else {
+        start();
+      }
+    });
+
+    sourceInputs.forEach((input) => {
+      input.addEventListener("change", () => {
+        setSource(input.value);
+        if (listening) {
+          stop();
+          setTimeout(start, 250);
+        }
+      });
+    });
+
+    language.addEventListener("change", () => {
+      localStorage.setItem(langKey, language.value);
+      if (listening) {
+        stop();
+        setTimeout(start, 250);
+      }
+    });
+
+    notes.addEventListener("input", save);
+
+    pin.addEventListener("click", async () => {
+      if ("documentPictureInPicture" in window) {
+        if (pipWindow && !pipWindow.closed) {
+          pipWindow.close();
+          return;
+        }
+
+        pipWindow = await window.documentPictureInPicture.requestWindow({
+          width: 420,
+          height: 560
+        });
+        pipWindow.document.body.innerHTML = `
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              display: grid;
+              grid-template-rows: auto 1fr auto;
+              gap: 8px;
+              height: 100vh;
+              padding: 10px;
+              color: #202420;
+              background: #f6f7f2;
+              font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+            }
+            strong { font-size: 0.95rem; }
+            textarea {
+              width: 100%;
+              min-height: 0;
+              resize: none;
+              border: 1px solid #d9dfd4;
+              border-radius: 8px;
+              padding: 12px;
+              font: 1rem/1.5 ui-serif, Georgia, serif;
+              outline: none;
+            }
+            div {
+              min-height: 42px;
+              padding: 9px 10px;
+              border-radius: 8px;
+              color: #075f50;
+              background: #e6f3ee;
+              font-size: 0.9rem;
+              line-height: 1.35;
+            }
+          </style>
+          <strong>Escucha y anota</strong>
+          <textarea id="pinned-notes" spellcheck="true"></textarea>
+          <div id="pinned-live"></div>
+        `;
+        const pinnedNotes = pipWindow.document.querySelector("#pinned-notes");
+        pinnedNotes.value = notes.value;
+        pinnedNotes.addEventListener("input", () => {
+          notes.value = pinnedNotes.value;
+          notes.dispatchEvent(new Event("input"));
+        });
+        syncPinnedWindow();
+        pipWindow.addEventListener("pagehide", () => {
+          pipWindow = null;
+        });
+        saved.textContent = "Ventana anclada";
+      } else {
+        document.body.classList.toggle("compact");
+        saved.textContent = document.body.classList.contains("compact") ? "Modo compacto" : "Vista normal";
+        live.textContent = "Si quieres dejarla encima de Zoom o Teams, abre esta página en Chrome/Edge y usa Anclar; si no aparece, instala la página como app y fíjala con las opciones de Windows.";
+      }
+    });
+
+    copy.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(notes.value);
+      saved.textContent = "Copiado";
+    });
+
+    download.addEventListener("click", () => {
+      const blob = new Blob([notes.value], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      link.href = URL.createObjectURL(blob);
+      link.download = `notas-${stamp}.txt`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    clear.addEventListener("click", () => {
+      if (!notes.value || confirm("¿Borrar todas las notas?")) {
+        notes.value = "";
+        notes.dispatchEvent(new Event("input"));
+        live.textContent = "La transcripción aparecerá aquí mientras hablas.";
+        syncPinnedWindow();
+      }
+    });
+
+    if (!SpeechRecognition) {
+      setStatus("No disponible", false);
+      live.textContent = "Este navegador no tiene reconocimiento de voz. Prueba con Chrome o Edge.";
+      syncPinnedWindow();
+      toggle.disabled = true;
+    }
+  </script>
+</body>
+</html>
