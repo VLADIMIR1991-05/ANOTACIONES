@@ -474,11 +474,40 @@
       return clean.charAt(0).toUpperCase() + clean.slice(1);
     }
 
+    function comparableWords(text) {
+      return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    }
+
+    function overlapWordCount(existingText, nextText) {
+      const existing = comparableWords(existingText);
+      const next = comparableWords(nextText);
+      const max = Math.min(existing.length, next.length);
+
+      for (let size = max; size > 0; size -= 1) {
+        const existingTail = existing.slice(-size).join(" ");
+        const nextHead = next.slice(0, size).join(" ");
+        if (existingTail === nextHead) return size;
+      }
+
+      return 0;
+    }
+
     function appendText(text) {
       const sentence = normalize(text);
       if (!sentence) return;
+      const overlap = overlapWordCount(notes.value, sentence);
+      const sentenceWords = sentence.split(/\s+/);
+      const newWords = sentenceWords.slice(overlap).join(" ");
+      if (!newWords) return;
       const needsSpace = notes.value && !notes.value.endsWith("\n") && !notes.value.endsWith(" ");
-      notes.value += `${needsSpace ? " " : ""}${sentence}`;
+      notes.value += `${needsSpace ? " " : ""}${newWords}`;
       notes.dispatchEvent(new Event("input"));
       notes.scrollTop = notes.scrollHeight;
     }
